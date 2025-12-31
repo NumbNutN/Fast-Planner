@@ -245,6 +245,71 @@ bool FastPlannerManager::kinodynamicReplan(Eigen::Vector3d start_pt, Eigen::Vect
   return true;
 }
 
+bool FastPlannerManager::planGlobalTrajWaypoints(const Eigen::Vector3d& start_pos,
+                                                 const Eigen::Vector3d& start_vel,
+                                                 const Eigen::Vector3d& start_acc,
+                                                 const std::vector<Eigen::Vector3d>& waypoints,
+                                                 const Eigen::Vector3d& end_vel) {
+  std::cout << "[kino replan]: -----------------------" << std::endl;
+  std::cout << "start: " << start_pos.transpose() << ", " << start_vel.transpose() << ", "
+            << start_acc.transpose() << std::endl;
+  std::cout << "waypoints: " << waypoints.size() << std::endl;
+
+  ros::Time t1 = ros::Time::now();
+  local_data_.start_time_ = t1;
+
+  double ts = pp_.ctrl_pt_dist / pp_.max_vel_;
+  std::vector<Eigen::Vector3d> point_set, start_end_derivatives;
+  
+  // start point
+  point_set.push_back(start_pos);
+  
+  // waypoints
+  for (const auto& wp : waypoints) {
+    point_set.push_back(wp);
+  }
+
+  // start derivatives
+  start_end_derivatives.push_back(start_vel);
+  start_end_derivatives.push_back(end_vel);
+  start_end_derivatives.push_back(start_acc);
+  start_end_derivatives.push_back(Eigen::Vector3d::Zero()); // end_acc
+
+  Eigen::MatrixXd ctrl_pts;
+  NonUniformBspline::parameterizeToBspline(ts, point_set, start_end_derivatives, ctrl_pts);
+  NonUniformBspline init(ctrl_pts, 3, ts);
+
+  // bspline trajectory optimization
+  // We use the same optimization pipeline but skip the A* search
+  int cost_function = BsplineOptimizer::NORMAL_PHASE | BsplineOptimizer::ENDPOINT;
+  
+  // Optimize
+  ctrl_pts = bspline_optimizers_[0]->BsplineOptimizeTraj(ctrl_pts, ts, cost_function, 1, 1);
+
+  // iterative time adjustment
+  NonUniformBspline pos = NonUniformBspline(ctrl_pts, 3, ts);
+  double to = pos.getTimeSum();
+  pos.setPhysicalLimits(pp_.max_vel_, pp_.max_acc_);
+  bool feasible = pos.checkFeasibility(false);
+
+  int iter_num = 0;
+  while (!feasible && ros::ok()) {
+    feasible = pos.reallocateTime();
+    if (++iter_num >= 3) break;
+  }
+
+  double tn = pos.getTimeSum();
+  std::cout << "[kino replan]: Reallocate ratio: " << tn / to << std::endl;
+
+  local_data_.position_traj_ = pos;
+  double t_total = (ros::Time::now() - t1).toSec();
+  std::cout << "[kino replan]: time: " << t_total << std::endl;
+
+  updateTrajInfo();
+
+  return true;
+}
+
 // !SECTION
 
 // SECTION topological replanning

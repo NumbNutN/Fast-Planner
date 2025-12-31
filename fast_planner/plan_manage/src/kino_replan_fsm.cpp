@@ -60,6 +60,8 @@ void KinoReplanFSM::init(ros::NodeHandle& nh) {
       nh.subscribe("/waypoint_generator/waypoints", 1, &KinoReplanFSM::waypointCallback, this);
   odom_sub_ = nh.subscribe("/odom_world", 1, &KinoReplanFSM::odometryCallback, this);
 
+  manual_waypoints_sub_ = nh.subscribe("/path_topic", 1, &KinoReplanFSM::manualWaypointsCallback, this);
+
   replan_pub_  = nh.advertise<std_msgs::Empty>("/planning/replan", 10);
   new_pub_     = nh.advertise<std_msgs::Empty>("/planning/new", 10);
   bspline_pub_ = nh.advertise<plan_manage::Bspline>("/planning/bspline", 10);
@@ -153,13 +155,23 @@ void KinoReplanFSM::execFSMCallback(const ros::TimerEvent& e) {
     }
 
     case GEN_NEW_TRAJ: {
-      start_pt_  = odom_pos_;
-      start_vel_ = odom_vel_;
-      start_acc_.setZero();
+      if (optimistic_) {
+        // start_pt_  = waypoints_[0]; // Use first waypoint as start
+        start_pt_(0) = waypoints_[0][0]; // Manually set start pos using first waypoint
+        start_pt_(1) = waypoints_[0][1];
+        start_pt_(2) = waypoints_[0][2];
+        start_vel_.setZero();
+        start_acc_.setZero();
+        start_yaw_.setZero();
+      } else {
+        start_pt_  = odom_pos_;
+        start_vel_ = odom_vel_;
+        start_acc_.setZero();
 
-      Eigen::Vector3d rot_x = odom_orient_.toRotationMatrix().block(0, 0, 3, 1);
-      start_yaw_(0)         = atan2(rot_x(1), rot_x(0));
-      start_yaw_(1) = start_yaw_(2) = 0.0;
+        Eigen::Vector3d rot_x = odom_orient_.toRotationMatrix().block(0, 0, 3, 1);
+        start_yaw_(0)         = atan2(rot_x(1), rot_x(0));
+        start_yaw_(1) = start_yaw_(2) = 0.0;
+      }
 
       bool success = callKinodynamicReplan();
       if (success) {
@@ -363,4 +375,90 @@ bool KinoReplanFSM::callKinodynamicReplan() {
 }
 
 // KinoReplanFSM::
+void KinoReplanFSM::manualWaypointsCallback(const nav_msgs::PathConstPtr& msg) {
+  if (msg->poses.empty()) return;
+  std::cout << "Triggered manual waypoints!" << std::endl;
+  
+  if (callManualWaypoints(msg)) {
+    changeFSMExecState(EXEC_TRAJ, "MANUAL");
+  } else {
+    std::cout << "Manual waypoints planning failed" << std::endl;
+  }
+}
+
+bool KinoReplanFSM::callManualWaypoints(const nav_msgs::PathConstPtr& msg) {
+  std::vector<Eigen::Vector3d> waypoints;
+  for (const auto& pose : msg->poses) {
+    waypoints.emplace_back(pose.pose.position.x, pose.pose.position.y, pose.pose.position.z);
+  }
+
+  // Set start state based on first waypoint or odom
+  Eigen::Vector3d start_pt, start_vel, start_acc, end_vel;
+  if (optimistic_) {
+    start_pt = waypoints[0];
+    // remove first point from waypoints list as it is start point
+    waypoints.erase(waypoints.begin());
+  } else {
+    start_pt = odom_pos_;
+    start_vel = odom_vel_;
+    start_acc.setZero();
+  }
+  
+  start_vel.setZero();
+  start_acc.setZero();
+  end_vel.setZero();
+
+  end_pt_ = waypoints.back();
+  have_target_ = true;
+
+  bool plan_success = planner_manager_->planGlobalTrajWaypoints(
+    start_pt, start_vel, start_acc, waypoints, end_vel
+  );
+
+  if (plan_success) {
+    // Generate yaw trajectory and publish
+    start_yaw_(0) = 0.0; 
+    start_yaw_(1) = 0.0;
+    start_yaw_(2) = 0.0;
+    
+    planner_manager_->planYaw(start_yaw_);
+    
+    // Visualize and Publish B-spline
+    auto info = &planner_manager_->local_data_;
+    
+    plan_manage::Bspline bspline;
+    bspline.order = 3;
+    bspline.start_time = info->start_time_;
+    bspline.traj_id = info->traj_id_;
+    
+    Eigen::MatrixXd pos_pts = info->position_traj_.getControlPoint();
+    for (int i = 0; i < pos_pts.rows(); ++i) {
+      geometry_msgs::Point pt;
+      pt.x = pos_pts(i, 0);
+      pt.y = pos_pts(i, 1);
+      pt.z = pos_pts(i, 2);
+      bspline.pos_pts.push_back(pt);
+    }
+
+    Eigen::VectorXd knots = info->position_traj_.getKnot();
+    for (int i = 0; i < knots.rows(); ++i) {
+      bspline.knots.push_back(knots(i));
+    }
+
+    Eigen::MatrixXd yaw_pts = info->yaw_traj_.getControlPoint();
+    for (int i = 0; i < yaw_pts.rows(); ++i) {
+      bspline.yaw_pts.push_back(yaw_pts(i, 0));
+    }
+    bspline.yaw_dt = info->yaw_traj_.getInterval();
+
+    bspline_pub_.publish(bspline);
+
+    // Visualize
+    visualization_->drawBspline(info->position_traj_, 0.1, Eigen::Vector4d(1.0, 0, 0.0, 1), true, 0.2,
+                                Eigen::Vector4d(1, 0, 0, 1));
+    return true;
+  }
+  return false;
+}
+
 }  // namespace fast_planner

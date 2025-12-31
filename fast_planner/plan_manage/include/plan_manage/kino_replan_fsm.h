@@ -104,6 +104,10 @@ private:
   ros::Subscriber waypoint_sub_, odom_sub_;
   ros::Publisher replan_pub_, new_pub_, bspline_pub_;
 
+  ros::Subscriber manual_waypoints_sub_;
+  bool callManualWaypoints(const nav_msgs::PathConstPtr& msg);
+  void manualWaypointsCallback(const nav_msgs::PathConstPtr& msg);
+
   /* helper functions */
   bool callKinodynamicReplan();        // front-end and back-end method
   bool callTopologicalTraj(int step);  // topo path guided gradient-based
