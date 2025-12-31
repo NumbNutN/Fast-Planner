@@ -85,6 +85,7 @@ private:
   double no_replan_thresh_, replan_thresh_;
   double waypoints_[50][3];
   int waypoint_num_;
+  bool optimistic_;
 
   /* planning data */
   bool trigger_, have_target_, have_odom_;

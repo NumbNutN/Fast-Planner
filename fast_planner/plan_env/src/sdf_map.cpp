@@ -75,6 +75,7 @@ void SDFMap::initMap(ros::NodeHandle& nh) {
   node_.param("sdf_map/local_bound_inflate", mp_.local_bound_inflate_, 1.0);
   node_.param("sdf_map/local_map_margin", mp_.local_map_margin_, 1);
   node_.param("sdf_map/ground_height", mp_.ground_height_, 1.0);
+  node_.param("sdf_map/optimistic", mp_.optimistic_, false);
 
   mp_.local_bound_inflate_ = max(mp_.resolution_, mp_.local_bound_inflate_);
   mp_.resolution_inv_ = 1 / mp_.resolution_;
@@ -249,6 +250,7 @@ void SDFMap::fillESDF(F_get_val f_get_val, F_set_val f_set_val, int start, int e
 }
 
 void SDFMap::updateESDF3d() {
+  // min_esdf max_esdf define a [min_esdf, max_esdf] range
   Eigen::Vector3i min_esdf = md_.local_bound_min_;
   Eigen::Vector3i max_esdf = md_.local_bound_max_;
 
@@ -475,6 +477,7 @@ void SDFMap::projectDepthImage() {
   md_.last_depth_image_ = md_.depth_image_;
 }
 
+// raycastProcss set
 void SDFMap::raycastProcess() {
   // if (md_.proj_points_.size() == 0)
   if (md_.proj_points_cnt == 0) return;
@@ -772,7 +775,9 @@ void SDFMap::visCallback(const ros::TimerEvent& /*event*/) {
   // publishDepth();
 }
 
+// here update esdf
 void SDFMap::updateOccupancyCallback(const ros::TimerEvent& /*event*/) {
+  if (mp_.optimistic_) return;
   if (!md_.occ_need_update_) return;
 
   /* update occupancy */
@@ -862,14 +867,50 @@ void SDFMap::cloudCallback(const sensor_msgs::PointCloud2ConstPtr& img) {
   pcl::PointCloud<pcl::PointXYZ> latest_cloud;
   pcl::fromROSMsg(*img, latest_cloud);
 
+  if (latest_cloud.points.size() == 0) return;
+
+  if (mp_.optimistic_) {
+    if (md_.has_cloud_) return;
+    md_.has_cloud_ = true;
+
+    this->resetBuffer(mp_.map_min_boundary_, mp_.map_max_boundary_);
+
+    pcl::PointXYZ pt;
+    Eigen::Vector3d p3d, p3d_inf;
+    int inf_step = ceil(mp_.obstacles_inflation_ / mp_.resolution_);
+    int inf_step_z = 1;
+
+    for (size_t i = 0; i < latest_cloud.points.size(); ++i) {
+      pt = latest_cloud.points[i];
+      p3d(0) = pt.x, p3d(1) = pt.y, p3d(2) = pt.z;
+
+      /* inflate the point */
+      for (int x = -inf_step; x <= inf_step; ++x)
+        for (int y = -inf_step; y <= inf_step; ++y)
+          for (int z = -inf_step_z; z <= inf_step_z; ++z) {
+            p3d_inf(0) = pt.x + x * mp_.resolution_;
+            p3d_inf(1) = pt.y + y * mp_.resolution_;
+            p3d_inf(2) = pt.z + z * mp_.resolution_;
+
+            if (!isInMap(p3d_inf)) continue;
+            Eigen::Vector3i idx;
+            posToIndex(p3d_inf, idx);
+            md_.occupancy_buffer_inflate_[toAddress(idx)] = 1;
+          }
+    }
+
+    md_.local_bound_min_ = Eigen::Vector3i::Zero();
+    md_.local_bound_max_ = mp_.map_voxel_num_ - Eigen::Vector3i::Ones();
+    md_.esdf_need_update_ = true;
+    return;
+  }
+
   md_.has_cloud_ = true;
 
   if (!md_.has_odom_) {
     // std::cout << "no odom!" << std::endl;
     return;
   }
-
-  if (latest_cloud.points.size() == 0) return;
 
   if (isnan(md_.camera_pos_(0)) || isnan(md_.camera_pos_(1)) || isnan(md_.camera_pos_(2))) return;
 

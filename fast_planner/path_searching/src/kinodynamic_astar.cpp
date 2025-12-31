@@ -85,6 +85,9 @@ int KinodynamicAstar::search(Eigen::Vector3d start_pt, Eigen::Vector3d start_v, 
 
     // Terminate?
     bool reach_horizon = (cur_node->state.head(3) - start_pt).norm() >= horizon_;
+    if (optimistic_) {
+      reach_horizon = false;
+    }
     bool near_end = abs(cur_node->index(0) - end_index(0)) <= tolerance &&
                     abs(cur_node->index(1) - end_index(1)) <= tolerance &&
                     abs(cur_node->index(2) - end_index(2)) <= tolerance;
@@ -334,7 +337,7 @@ void KinodynamicAstar::setParam(ros::NodeHandle& nh)
   nh.param("search/lambda_heu", lambda_heu_, -1.0);
   nh.param("search/allocate_num", allocate_num_, -1);
   nh.param("search/check_num", check_num_, -1);
-  nh.param("search/optimistic", optimistic_, true);
+  nh.param("sdf_map/optimistic", optimistic_, false);
   tie_breaker_ = 1.0 + 1.0 / 10000;
 
   double vel_margin;

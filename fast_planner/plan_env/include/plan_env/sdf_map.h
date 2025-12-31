@@ -108,6 +108,9 @@ struct MappingParameters {
 
   /* active mapping */
   double unknown_flag_;
+
+  /* global map update */
+  bool optimistic_;
 };
 
 // intermediate mapping data for fusion, esdf

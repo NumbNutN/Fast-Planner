@@ -38,6 +38,7 @@ void KinoReplanFSM::init(ros::NodeHandle& nh) {
   nh.param("fsm/flight_type", target_type_, -1);
   nh.param("fsm/thresh_replan", replan_thresh_, -1.0);
   nh.param("fsm/thresh_no_replan", no_replan_thresh_, -1.0);
+  nh.param("sdf_map/optimistic", optimistic_, false);
 
   nh.param("fsm/waypoint_num", waypoint_num_, -1);
   for (int i = 0; i < waypoint_num_; i++) {
@@ -195,7 +196,9 @@ void KinoReplanFSM::execFSMCallback(const ros::TimerEvent& e) {
         return;
 
       } else {
-        changeFSMExecState(REPLAN_TRAJ, "FSM");
+        if (!optimistic_) {
+          changeFSMExecState(REPLAN_TRAJ, "FSM");
+        }
       }
       break;
     }

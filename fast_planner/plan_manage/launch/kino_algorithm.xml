@@ -2,6 +2,7 @@
   <arg name="map_size_x_"/>
   <arg name="map_size_y_"/>
   <arg name="map_size_z_"/>
+  <arg name="optimistic"/>
 
   <arg name="odometry_topic"/>
   <arg name="camera_pose_topic"/>
@@ -67,6 +68,7 @@
     <param name="sdf_map/local_bound_inflate"    value="0.0"/>
     <param name="sdf_map/local_map_margin" value="50"/>
     <param name="sdf_map/ground_height"        value="-1.0"/>
+    <param name="sdf_map/optimistic" value="$(arg optimistic)"/>
     <!-- camera parameter -->
     <param name="sdf_map/cx" value="$(arg cx)"/>
     <param name="sdf_map/cy" value="$(arg cy)"/>
