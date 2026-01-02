@@ -176,9 +176,13 @@ void BsplineOptimizer::optimize() {
     // vec_time_.clear();
     // vec_cost_.clear();
     // time_start_ = ros::Time::now();
+    ros::Time t_opt_start = ros::Time::now();
 
     double        final_cost;
     nlopt::result result = opt.optimize(q, final_cost);
+
+    double t_opt_total = (ros::Time::now() - t_opt_start).toSec();
+    cout << "[BsplineOptimizer]: iter num: " << iter_num_ << ", time: " << t_opt_total * 1000 << " ms" << endl;
 
     /* retrieve the optimization result */
     // cout << "Min cost:" << min_cost_ << endl;

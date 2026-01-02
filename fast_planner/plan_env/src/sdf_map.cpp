@@ -250,6 +250,8 @@ void SDFMap::fillESDF(F_get_val f_get_val, F_set_val f_set_val, int start, int e
 }
 
 void SDFMap::updateESDF3d() {
+  ros::Time t_esdf_start = ros::Time::now();
+  
   // min_esdf max_esdf define a [min_esdf, max_esdf] range
   Eigen::Vector3i min_esdf = md_.local_bound_min_;
   Eigen::Vector3i max_esdf = md_.local_bound_max_;
@@ -350,6 +352,8 @@ void SDFMap::updateESDF3d() {
         if (md_.distance_buffer_neg_[idx] > 0.0)
           md_.distance_buffer_all_[idx] += (-md_.distance_buffer_neg_[idx] + mp_.resolution_);
       }
+
+  std::cout << "[ESDF]: update time: " << (ros::Time::now() - t_esdf_start).toSec() * 1000 << " ms" << std::endl;
 }
 
 int SDFMap::setCacheOccupancy(Eigen::Vector3d pos, int occ) {

@@ -284,6 +284,7 @@ bool FastPlannerManager::planGlobalTrajWaypoints(const Eigen::Vector3d& start_po
   int cost_function = BsplineOptimizer::NORMAL_PHASE | BsplineOptimizer::ENDPOINT;
   
   // Optimize
+  ROS_WARN("Optimize Global Traj");
   ctrl_pts = bspline_optimizers_[0]->BsplineOptimizeTraj(ctrl_pts, ts, cost_function, 1, 1);
 
   // iterative time adjustment
@@ -485,6 +486,7 @@ void FastPlannerManager::refineTraj(NonUniformBspline& best_traj, double& time_i
   reparamBspline(best_traj, ratio, ctrl_pts, dt, t_inc);
   time_inc += t_inc;
 
+  ROS_WARN("Refine Traj");
   ctrl_pts  = bspline_optimizers_[0]->BsplineOptimizeTraj(ctrl_pts, dt, cost_function, 1, 1);
   best_traj = NonUniformBspline(ctrl_pts, 3, dt);
   ROS_WARN_STREAM("[Refine]: cost " << (ros::Time::now() - t1).toSec()
@@ -725,6 +727,7 @@ void FastPlannerManager::planYaw(const Eigen::Vector3d& start_yaw) {
   // solve
   bspline_optimizers_[1]->setWaypoints(waypts, waypt_idx);
   int cost_func = BsplineOptimizer::SMOOTHNESS | BsplineOptimizer::WAYPOINTS;
+  ROS_WARN("Optimizing yaw");
   yaw           = bspline_optimizers_[1]->BsplineOptimizeTraj(yaw, dt_yaw, cost_func, 1, 1);
 
   // update traj info
