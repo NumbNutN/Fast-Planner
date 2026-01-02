@@ -236,9 +236,20 @@ void BsplineOptimizer::calcDistanceCost(const vector<Eigen::Vector3d>& q, double
     edt_environment_->evaluateEDTWithGrad(q[i], -1.0, dist, dist_grad);
     if (dist_grad.norm() > 1e-4) dist_grad.normalize();
 
+    // Debug ESDF values
+    // if (iter_num_ % 10 == 0) {
+    //   std::cout << "Point " << i << ": " << q[i].transpose() << " | Dist: " << dist << " | Grad: " << dist_grad.transpose() << std::endl;
+    // }
+
     if (dist < dist0_) {
       cost += pow(dist - dist0_, 2);
       gradient[i] += 2.0 * (dist - dist0_) * dist_grad;
+      
+      // Log collision points during optimization
+      if (iter_num_ > 0 && iter_num_ % 5 == 0) {
+        ROS_WARN("Optimization collision at pt %d: pos=(%.2f, %.2f, %.2f), dist=%.3f, grad=(%.2f, %.2f, %.2f)", 
+                 i, q[i](0), q[i](1), q[i](2), dist, dist_grad(0), dist_grad(1), dist_grad(2));
+      }
     }
   }
 }

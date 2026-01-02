@@ -226,6 +226,9 @@ public:
   double getResolution();
   Eigen::Vector3d getOrigin();
   int getVoxelNum();
+  inline bool hasCloud() {
+    return md_.has_cloud_;
+  }
 
   typedef std::shared_ptr<SDFMap> Ptr;
 

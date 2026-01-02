@@ -67,6 +67,10 @@ public:
 
   bool checkTrajCollision(double& distance);
 
+  inline bool isGlobalMapUpdated() {
+    return sdf_map_->hasCloud();
+  }
+
   PlanParameters pp_;
   LocalTrajData local_data_;
   GlobalTrajData global_data_;

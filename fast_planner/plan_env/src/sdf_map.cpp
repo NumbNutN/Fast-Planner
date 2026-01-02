@@ -82,6 +82,8 @@ void SDFMap::initMap(ros::NodeHandle& nh) {
   mp_.map_origin_ = Eigen::Vector3d(-x_size / 2.0, -y_size / 2.0, mp_.ground_height_);
   mp_.map_size_ = Eigen::Vector3d(x_size, y_size, z_size);
 
+  ROS_WARN("Map size: %f %f %f", x_size, y_size, z_size);
+
   mp_.prob_hit_log_ = logit(mp_.p_hit_);
   mp_.prob_miss_log_ = logit(mp_.p_miss_);
   mp_.clamp_min_log_ = logit(mp_.p_min_);
@@ -255,6 +257,9 @@ void SDFMap::updateESDF3d() {
   // min_esdf max_esdf define a [min_esdf, max_esdf] range
   Eigen::Vector3i min_esdf = md_.local_bound_min_;
   Eigen::Vector3i max_esdf = md_.local_bound_max_;
+
+  ROS_WARN("Min ESDF: %d %d %d", min_esdf[0], min_esdf[1], min_esdf[2]);
+  ROS_WARN("Max ESDF: %d %d %d", max_esdf[0], max_esdf[1], max_esdf[2]);
 
   /* ========== compute positive DT ========== */
 
@@ -891,12 +896,17 @@ void SDFMap::cloudCallback(const sensor_msgs::PointCloud2ConstPtr& img) {
       /* inflate the point */
       for (int x = -inf_step; x <= inf_step; ++x)
         for (int y = -inf_step; y <= inf_step; ++y)
-          for (int z = -inf_step_z; z <= inf_step_z; ++z) {
+          for (int z = -inf_step; z <= inf_step; ++z) {
             p3d_inf(0) = pt.x + x * mp_.resolution_;
             p3d_inf(1) = pt.y + y * mp_.resolution_;
             p3d_inf(2) = pt.z + z * mp_.resolution_;
 
-            if (!isInMap(p3d_inf)) continue;
+            if (!isInMap(p3d_inf))
+            {
+              // if (pt.z > 3)
+              //   ROS_WARN("Point out of map: %f %f %f", p3d_inf[0], p3d_inf[1], p3d_inf[2]);
+              continue;
+            } 
             Eigen::Vector3i idx;
             posToIndex(p3d_inf, idx);
             md_.occupancy_buffer_inflate_[toAddress(idx)] = 1;

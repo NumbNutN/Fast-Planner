@@ -387,6 +387,12 @@ void KinoReplanFSM::manualWaypointsCallback(const nav_msgs::PathConstPtr& msg) {
 }
 
 bool KinoReplanFSM::callManualWaypoints(const nav_msgs::PathConstPtr& msg) {
+
+  // the map should be updated before calling this function
+  if (!planner_manager_->isGlobalMapUpdated()) {
+    std::cout << "Map not updated, please wait for map update" << std::endl;
+    return false;
+  }
   std::vector<Eigen::Vector3d> waypoints;
   for (const auto& pose : msg->poses) {
     waypoints.emplace_back(pose.pose.position.x, pose.pose.position.y, pose.pose.position.z);
