@@ -76,6 +76,7 @@ public:
   GlobalTrajData global_data_;
   MidPlanData plan_data_;
   EDTEnvironment::Ptr edt_environment_;
+  vector<BsplineOptimizer::Ptr> bspline_optimizers_;
 
 private:
   /* main planning algorithms & modules */
@@ -84,7 +85,7 @@ private:
   unique_ptr<Astar> geo_path_finder_;
   unique_ptr<KinodynamicAstar> kino_path_finder_;
   unique_ptr<TopologyPRM> topo_prm_;
-  vector<BsplineOptimizer::Ptr> bspline_optimizers_;
+  
 
   void updateTrajInfo();
 

@@ -264,8 +264,21 @@ bool FastPlannerManager::planGlobalTrajWaypoints(const Eigen::Vector3d& start_po
   // start point
   point_set.push_back(start_pos);
   
-  // waypoints
+  // waypoints - Resample to ensure density
+  double dist_thresh = pp_.ctrl_pt_dist;
+  if (dist_thresh <= 0.1) dist_thresh = 0.4; // Default to reasonable value if invalid
+
   for (const auto& wp : waypoints) {
+    Eigen::Vector3d last_pt = point_set.back();
+    double dist = (wp - last_pt).norm();
+    
+    // Linearly interpolate if points are too far apart
+    if (dist > dist_thresh) {
+       int num_insert = std::ceil(dist / dist_thresh);
+       for (int k = 1; k < num_insert; ++k) {
+         point_set.push_back(last_pt + (wp - last_pt) * (double(k) / num_insert));
+       }
+    }
     point_set.push_back(wp);
   }
 

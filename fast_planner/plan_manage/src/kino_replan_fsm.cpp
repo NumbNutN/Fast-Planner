@@ -65,6 +65,18 @@ void KinoReplanFSM::init(ros::NodeHandle& nh) {
   replan_pub_  = nh.advertise<std_msgs::Empty>("/planning/replan", 10);
   new_pub_     = nh.advertise<std_msgs::Empty>("/planning/new", 10);
   bspline_pub_ = nh.advertise<plan_manage::Bspline>("/planning/bspline", 10);
+
+  // Set visualization callback for optimizer
+  // if (!planner_manager_->bspline_optimizers_.empty()) {
+  //     planner_manager_->bspline_optimizers_[0]->setVisCallback(
+  //         [this](const Eigen::MatrixXd& ctrl_pts) {
+  //             // The time interval doesn't affect shape visualization, so we use a dummy value
+  //             NonUniformBspline tmp_traj(ctrl_pts, 3, 0.1); 
+  //             visualization_->drawBspline(tmp_traj, 0.1, Eigen::Vector4d(1.0, 0, 0.0, 1), true, 0.2,
+  //                                         Eigen::Vector4d(1, 0, 0, 1));
+  //             ros::Duration(0.5).sleep(); 
+  //         });
+  // }
 }
 
 void KinoReplanFSM::waypointCallback(const nav_msgs::PathConstPtr& msg) {

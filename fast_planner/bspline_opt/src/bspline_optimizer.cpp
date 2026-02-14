@@ -25,6 +25,7 @@
 
 #include "bspline_opt/bspline_optimizer.h"
 #include <nlopt.hpp>
+#include <fstream>
 // using namespace std;
 
 namespace fast_planner {
@@ -178,11 +179,31 @@ void BsplineOptimizer::optimize() {
     // time_start_ = ros::Time::now();
     ros::Time t_opt_start = ros::Time::now();
 
+    // Open log file
+    std::ofstream log_file;
+    log_file.open("/home/numbnut/桌面/FastPlanner_ws/src/Fast-Planner/bspline_opt_log.txt", std::ios::out | std::ios::app);
+    if (log_file.is_open()) {
+        log_file << "Optimization Start" << std::endl;
+        // Store pointer to log file in a static member or pass it somehow if needed,
+        // but since costFunction is static, we can't easily pass it.
+        // A simple way is to use a member variable if we modify the class,
+        // or just re-open in append mode inside cost calculation (slow),
+        // or use a global pointer (ugly but works for debug).
+        // Let's use a member variable pointer.
+        this->log_file_ptr_ = &log_file; 
+    }
+
     double        final_cost;
     nlopt::result result = opt.optimize(q, final_cost);
 
     double t_opt_total = (ros::Time::now() - t_opt_start).toSec();
     cout << "[BsplineOptimizer]: iter num: " << iter_num_ << ", time: " << t_opt_total * 1000 << " ms" << endl;
+
+    if (log_file.is_open()) {
+        log_file << "Optimization End. Iterations: " << iter_num_ << ", Time: " << t_opt_total << "s" << std::endl;
+        log_file.close();
+        this->log_file_ptr_ = nullptr;
+    }
 
     /* retrieve the optimization result */
     // cout << "Min cost:" << min_cost_ << endl;
@@ -231,7 +252,8 @@ void BsplineOptimizer::calcDistanceCost(const vector<Eigen::Vector3d>& q, double
   Eigen::Vector3d dist_grad, g_zero(0, 0, 0);
 
   int end_idx = (cost_function_ & ENDPOINT) ? q.size() : q.size() - order_;
-
+  if (log_file_ptr_)
+    *log_file_ptr_ << "============ current iteration count ============" << iter_num_ << std::endl;
   for (int i = order_; i < end_idx; i++) {
     edt_environment_->evaluateEDTWithGrad(q[i], -1.0, dist, dist_grad);
     if (dist_grad.norm() > 1e-4) dist_grad.normalize();
@@ -247,6 +269,8 @@ void BsplineOptimizer::calcDistanceCost(const vector<Eigen::Vector3d>& q, double
       
       // Log collision points during optimization
       if (iter_num_ > 0 && iter_num_ % 5 == 0) {
+        if (log_file_ptr_)
+          *log_file_ptr_ << "Optimization collision at pt " << i << ": pos=(" << q[i](0) << ", " << q[i](1) << ", " << q[i](2) << "), dist=" << dist << ", grad=(" << dist_grad(0) << ", " << dist_grad(1) << ", " << dist_grad(2) << ")" << std::endl;
         ROS_WARN("Optimization collision at pt %d: pos=(%.2f, %.2f, %.2f), dist=%.3f, grad=(%.2f, %.2f, %.2f)", 
                  i, q[i](0), q[i](1), q[i](2), dist, dist_grad(0), dist_grad(1), dist_grad(2));
       }
@@ -461,6 +485,19 @@ void BsplineOptimizer::combineCost(const std::vector<double>& x, std::vector<dou
   // << ", end: " << lambda4_ * f_endpoint
   // << ", guide: " << lambda5_ * f_guide
   // }
+
+  if (vis_callback_) {
+    // Current Control Points
+    Eigen::MatrixXd current_pts(variable_num_ / dim_, dim_);
+    for (int i = 0; i < variable_num_ / dim_; i++) {
+        for (int j = 0; j < dim_; j++) {
+            current_pts(i, j) = g_q_[order_ + i][j];
+        }
+    }
+    vis_callback_(current_pts);
+    // Optional: Add sleep to slow down visualization
+    // usleep(500000); 
+  }
 }
 
 double BsplineOptimizer::costFunction(const std::vector<double>& x, std::vector<double>& grad,

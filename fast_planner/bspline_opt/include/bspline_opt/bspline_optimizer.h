@@ -71,6 +71,9 @@ public:
   void setWaypoints(const vector<Eigen::Vector3d>& waypts,
                     const vector<int>&             waypt_idx);  // N-2 constraints at most
 
+  typedef std::function<void(const Eigen::MatrixXd&)> VisCallback;
+  void setVisCallback(const VisCallback& callback) { vis_callback_ = callback; }
+
   void optimize();
 
   Eigen::MatrixXd         getControlPoints();
@@ -126,6 +129,9 @@ private:
   vector<Eigen::Vector3d> g_endpoint_;
   vector<Eigen::Vector3d> g_guide_;
   vector<Eigen::Vector3d> g_waypoints_;
+
+  std::ofstream* log_file_ptr_ = nullptr;
+  VisCallback vis_callback_;
 
   int                 variable_num_;   // optimization variables
   int                 iter_num_;       // iteration of the solver
