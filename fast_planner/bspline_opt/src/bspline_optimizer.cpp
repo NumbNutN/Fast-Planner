@@ -125,6 +125,8 @@ Eigen::MatrixXd BsplineOptimizer::BsplineOptimizeTraj(const Eigen::MatrixXd& poi
 
 void BsplineOptimizer::optimize() {
   /* initialize solver */
+  ros::Time t1 = ros::Time::now();
+
   iter_num_        = 0;
   min_cost_        = std::numeric_limits<double>::max();
   const int pt_num = control_points_.rows();
@@ -172,12 +174,13 @@ void BsplineOptimizer::optimize() {
     opt.set_upper_bounds(ub);
   }
 
+  ros::Time t2 = ros::Time::now();
+
   try {
     // cout << fixed << setprecision(7);
     // vec_time_.clear();
     // vec_cost_.clear();
     // time_start_ = ros::Time::now();
-    ros::Time t_opt_start = ros::Time::now();
 
     // Open log file
     std::ofstream log_file;
@@ -196,11 +199,18 @@ void BsplineOptimizer::optimize() {
     double        final_cost;
     nlopt::result result = opt.optimize(q, final_cost);
 
-    double t_opt_total = (ros::Time::now() - t_opt_start).toSec();
-    cout << "[BsplineOptimizer]: iter num: " << iter_num_ << ", time: " << t_opt_total * 1000 << " ms" << endl;
+    ros::Time t3 = ros::Time::now();
+
+    cout << "-------------------------------------------------------" << endl;
+    cout << "[BsplineOptimizer] time info: " << endl;
+    cout << "| preparation | optimization | total |" << endl;
+    cout << "| " << (t2 - t1).toSec() * 1000 << " ms | " << (t3 - t2).toSec() * 1000 << " ms | " 
+         << (t3 - t1).toSec() * 1000 << " ms |" << endl;
+    cout << "[BsplineOptimizer] iter num: " << iter_num_ << endl;
+    cout << "-------------------------------------------------------" << endl;
 
     if (log_file.is_open()) {
-        log_file << "Optimization End. Iterations: " << iter_num_ << ", Time: " << t_opt_total << "s" << std::endl;
+        log_file << "Optimization End. Iterations: " << iter_num_ << ", Time: " << (t3 - t2).toSec() << "s" << std::endl;
         log_file.close();
         this->log_file_ptr_ = nullptr;
     }
